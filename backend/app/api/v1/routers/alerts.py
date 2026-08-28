@@ -97,3 +97,28 @@ def delete_alert(alert_id: str):
         raise HTTPException(status_code=404, detail="Alert not found")
     del _stored_alerts[alert_id]
     return {"status": "ok"}
+
+class SendEmailRequest(BaseModel):
+    to_email: str
+    subject: Optional[str] = "CogniClass Alert Notification"
+    title: Optional[str] = "Classroom Alert"
+    message: Optional[str] = "Bob Jones risk score spiked to 82.5% during CS301 Data Structures."
+    severity: Optional[str] = "CRITICAL"
+
+@router.post("/send-email")
+async def send_email_alert(payload: SendEmailRequest):
+    from app.core.email import email_service
+    html = email_service.render_alert_template(
+        recipient_name=payload.to_email.split('@')[0].capitalize(),
+        alert_title=payload.title,
+        alert_message=payload.message,
+        severity=payload.severity,
+        action_url="http://localhost:5173/twin"
+    )
+    success = await email_service.send_email_async(
+        to_email=payload.to_email,
+        subject=payload.subject,
+        html_content=html
+    )
+    return {"status": "ok" if success else "error", "sent": success, "recipient": payload.to_email}
+
