@@ -1,13 +1,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+/* ── Accent hue system ── */
 :root {
-  --primary-50: #eef2ff; --primary-100: #e0e7ff; --primary-200: #c7d2fe;
-  --primary-300: #a5b4fc; --primary-400: #818cf8; --primary-500: #6366f1;
-  --primary-600: #4f46e5; --primary-700: #4338ca; --primary-800: #3730a3;
-  --primary-900: #312e81; --primary-950: #1e1b4b;
+  --accent-hue: 239;
+
+  /* Primary palette — driven by accent hue */
+  --primary-50:  hsl(var(--accent-hue), 100%, 97%);
+  --primary-100: hsl(var(--accent-hue), 95%, 92%);
+  --primary-200: hsl(var(--accent-hue), 90%, 84%);
+  --primary-300: hsl(var(--accent-hue), 85%, 75%);
+  --primary-400: hsl(var(--accent-hue), 75%, 65%);
+  --primary-500: hsl(var(--accent-hue), 72%, 60%);
+  --primary-600: hsl(var(--accent-hue), 70%, 52%);
+  --primary-700: hsl(var(--accent-hue), 68%, 44%);
+  --primary-800: hsl(var(--accent-hue), 65%, 36%);
+  --primary-900: hsl(var(--accent-hue), 62%, 28%);
+  --primary-950: hsl(var(--accent-hue), 60%, 18%);
+
   --secondary-400: #2dd4bf; --secondary-500: #14b8a6; --secondary-600: #0d9488;
   --accent-400: #fbbf24; --accent-500: #f59e0b;
   --danger: #ef4444; --success: #22c55e; --warning: #f59e0b;
+
+  /* Light theme (default) */
   --bg-primary: #f8fafc; --bg-secondary: #ffffff; --bg-tertiary: #f1f5f9;
   --text-primary: #0f172a; --text-secondary: #334155;
   --border-color: #e2e8f0;
@@ -15,6 +29,7 @@
   --shadow-color: rgba(0,0,0,0.1);
 }
 
+/* ── Dark theme ── */
 .dark {
   --bg-primary: #020617; --bg-secondary: #0f172a; --bg-tertiary: #162032;
   --text-primary: #f8fafc; --text-secondary: #e2e8f0;
@@ -23,6 +38,25 @@
   --shadow-color: rgba(0,0,0,0.4);
 }
 
+/* ── Midnight Blue theme ── */
+.midnight {
+  --bg-primary: #0a0e27; --bg-secondary: #101640; --bg-tertiary: #181e52;
+  --text-primary: #e8ecff; --text-secondary: #a8b4e0;
+  --border-color: #2a3270;
+  --glass-bg: rgba(16,22,64,0.75); --glass-border: rgba(99,130,241,0.2);
+  --shadow-color: rgba(0,0,0,0.5);
+}
+
+/* ── Warm Sepia theme ── */
+.sepia {
+  --bg-primary: #1a1410; --bg-secondary: #261e17; --bg-tertiary: #332820;
+  --text-primary: #f5e6d3; --text-secondary: #c4a882;
+  --border-color: #4a3828;
+  --glass-bg: rgba(38,30,23,0.75); --glass-border: rgba(196,168,130,0.15);
+  --shadow-color: rgba(0,0,0,0.45);
+}
+
+/* ── Base reset ── */
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Inter',system-ui,sans-serif; -webkit-font-smoothing:antialiased;
   background:var(--bg-primary); color:var(--text-primary);

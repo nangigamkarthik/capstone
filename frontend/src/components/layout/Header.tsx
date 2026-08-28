@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { Search, Bell, Sun, Moon, LogOut, Sparkles } from 'lucide-react';
+import { Search, Bell, Sun, Moon, Mountain, Coffee, LogOut, Sparkles } from 'lucide-react';
 import { useThemeStore } from '../../stores/themeStore';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -14,7 +14,7 @@ const pageTitles: Record<string, string> = {
 
 export default function Header() {
   const location = useLocation();
-  const { theme, toggleTheme } = useThemeStore();
+  const { resolvedTheme, toggleTheme } = useThemeStore();
   const { unreadCount, togglePanel } = useNotificationStore();
   const { toggleCopilot } = useCopilotStore();
   const { user, logout } = useAuthStore();
@@ -72,7 +72,7 @@ export default function Header() {
           background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4,
           transition: 'transform 0.3s ease',
         }}>
-          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          {resolvedTheme === 'dark' ? <Sun size={20} /> : resolvedTheme === 'light' ? <Moon size={20} /> : resolvedTheme === 'midnight' ? <Mountain size={20} /> : <Coffee size={20} />}
         </button>
 
         {/* Divider */}
