@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, Wifi, WifiOff, Maximize2, Video, VideoOff, Settings, Clock, Activity, Target } from 'lucide-react';
 import StatCard from '../components/ui/StatCard';
 import { EngagementLineChart, EmotionDoughnut } from '../components/charts/Charts';
+import LiveTranscriptPanel from '../components/ui/LiveTranscriptPanel';
 
 const cameras = [
   { id: 1, name: 'Live Laptop Webcam', status: 'active', type: 'webcam' },
@@ -357,7 +358,6 @@ export default function LiveClassroomPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
         <StatCard id="live-engagement" title="Live Engagement Metrics" subtitle="Real-time 30-min window" icon={<Activity size={18} color="var(--primary-400)" />}>
           <div style={{ position: 'relative' }}>
-            {/* Color-coded indicator gauge */}
             <div style={{ position: 'absolute', top: -30, right: 0, display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(34,197,94,0.1)', padding: '6px 12px', borderRadius: 20, border: '1px solid rgba(34,197,94,0.2)' }}>
               <Target size={14} color="#22c55e" />
               <span style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>82% Average</span>
@@ -365,7 +365,7 @@ export default function LiveClassroomPage() {
             <EngagementLineChart labels={mockTimeline.labels} data={mockTimeline.data} />
           </div>
         </StatCard>
-        
+
         <StatCard id="live-emotions" title="Classroom Emotion Distribution" subtitle="AI-aggregated perception" icon={<Camera size={18} color="var(--secondary-400)" />}>
           <div style={{ position: 'relative' }}>
             <div style={{ position: 'absolute', top: -30, right: 0, display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(99,102,241,0.1)', padding: '6px 12px', borderRadius: 20, border: '1px solid rgba(99,102,241,0.2)' }}>
@@ -375,6 +375,9 @@ export default function LiveClassroomPage() {
           </div>
         </StatCard>
       </div>
+
+      {/* ── Live Speech-to-Text & Speaker Diarization Panel ── */}
+      <LiveTranscriptPanel />
     </div>
   );
 }
