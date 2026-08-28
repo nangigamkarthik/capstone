@@ -1,0 +1,55 @@
+# =============================================================================
+# Cognitive Classroom Digital Twin - Horizontal Pod Autoscaler
+# =============================================================================
+# Purpose: Automatically scales the API deployment based on CPU and memory
+#          utilization to handle variable classroom session loads.
+#
+# Scaling Strategy:
+#   - Minimum 2 replicas:  Ensures high availability during low-traffic periods
+#   - Maximum 10 replicas: Caps resource usage during peak classroom hours
+#   - CPU target 70%:      Scales up before CPU saturation impacts response times
+#   - Memory target 80%:   Accounts for memory-intensive LLM/Whisper operations
+#
+# Scale-Down Behavior:
+#   - 300-second (5-minute) stabilization window prevents flapping during
+#     intermittent load spikes (e.g., between class periods)
+#
+# Prerequisites:
+#   - Metrics Server must be installed in the cluster
+#     (kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/...)
+#
+# Usage:   kubectl apply -f hpa.yaml -n classroom-twin
+# =============================================================================
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-hpa
+  namespace: classroom-twin
+  labels:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/part-of: cognitive-classroom
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300

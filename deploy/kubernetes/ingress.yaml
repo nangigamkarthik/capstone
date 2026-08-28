@@ -1,0 +1,87 @@
+# =============================================================================
+# Cognitive Classroom Digital Twin - Ingress
+# =============================================================================
+# Purpose: Configures Nginx Ingress to route external traffic to the frontend
+#          and API services, with WebSocket support for real-time classroom
+#          data streaming.
+#
+# Routing Rules:
+#   - /      → frontend:80   (React/Next.js UI)
+#   - /api   → api:8000      (REST API endpoints)
+#   - /ws    → api:8000      (WebSocket connections for live data)
+#
+# Annotations:
+#   - proxy-body-size 100m:    Supports large file uploads (video, audio)
+#   - proxy-read-timeout 300:  Accommodates long-running AI processing requests
+#   - WebSocket annotations:   Enables persistent connections for real-time updates
+#
+# TLS:
+#   - TLS section is commented out below. Uncomment and configure with a valid
+#     certificate secret (e.g., via cert-manager) for HTTPS in production.
+#
+# Prerequisites:
+#   - Nginx Ingress Controller must be installed in the cluster
+#   - For TLS: cert-manager or manually created TLS secret
+#
+# Usage:   kubectl apply -f ingress.yaml -n classroom-twin
+# =============================================================================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: classroom-twin-ingress
+  namespace: classroom-twin
+  labels:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: cognitive-classroom
+  annotations:
+    # Ingress class
+    kubernetes.io/ingress.class: nginx
+    # Request body size limit — allows large video/audio uploads
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    # Read timeout — accommodates long-running AI processing
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    # WebSocket support annotations
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-set-headers: "Upgrade $http_upgrade"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: classroom-twin.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8000
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8000
+  # ---------------------------------------------------------------------------
+  # TLS Configuration (uncomment for HTTPS)
+  # ---------------------------------------------------------------------------
+  # Ensure a TLS secret exists in the classroom-twin namespace, or use
+  # cert-manager with a ClusterIssuer for automatic certificate provisioning.
+  #
+  # tls:
+  #   - hosts:
+  #       - classroom-twin.example.com
+  #     secretName: classroom-twin-tls

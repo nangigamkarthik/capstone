@@ -1,0 +1,269 @@
+# =============================================================================
+# Cognitive Classroom Digital Twin - Docker Compose (Production)
+# =============================================================================
+# Production-grade orchestration with:
+#   - Resource limits (CPU & memory) to prevent runaway containers
+#   - Restart policies for automatic recovery from crashes
+#   - No bind-mounted volumes (all code is baked into images)
+#   - Nginx reverse proxy with SSL termination (ports 80/443)
+#   - Flower dashboard for Celery task monitoring
+#   - Multi-replica API deployment for horizontal scaling
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This file is designed to be used as an override on top of the base
+# docker-compose.yml, but is also self-contained for clarity.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # API - FastAPI Backend (Production)
+  # ---------------------------------------------------------------------------
+  # Builds the production target which:
+  #   - Copies source code into the image (no volume mounts)
+  #   - Runs as non-root user (appuser)
+  #   - Uses uvloop + httptools for maximum performance
+  #   - Spawns 4 uvicorn workers per replica
+  #
+  # Deployed with 2 replicas for high availability. The nginx reverse proxy
+  # load-balances requests across all replicas.
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ./backend
+      target: production
+    container_name: classroom-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:${DB_PASSWORD:-postgres}@db:5432/classroom_db
+      - REDIS_URL=redis://redis:6379/0
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+    networks:
+      - classroom-network
+
+  # ---------------------------------------------------------------------------
+  # Database - TimescaleDB (Production)
+  # ---------------------------------------------------------------------------
+  # Same image as development but with tighter resource constraints.
+  # In production, consider using a managed database service (RDS, Cloud SQL)
+  # for automated backups, failover, and monitoring.
+  # ---------------------------------------------------------------------------
+  db:
+    image: timescale/timescaledb:2.17.2-pg16
+    container_name: classroom-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: classroom_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - classroom-network
+
+  # ---------------------------------------------------------------------------
+  # Redis - Cache & Message Broker (Production)
+  # ---------------------------------------------------------------------------
+  # Constrained to 512MB in production. The allkeys-lru eviction policy
+  # ensures the cache degrades gracefully under memory pressure rather than
+  # rejecting writes.
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7.4-alpine
+    container_name: classroom-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    volumes:
+      - redisdata:/data
+    networks:
+      - classroom-network
+
+  # ---------------------------------------------------------------------------
+  # Celery Worker - Async Task Processing (Production)
+  # ---------------------------------------------------------------------------
+  # Production workers run with higher concurrency (4) to handle increased
+  # task throughput. Resource limits prevent ML inference tasks from
+  # consuming all available host resources.
+  # ---------------------------------------------------------------------------
+  celery-worker:
+    build:
+      context: ./backend
+      target: production
+    container_name: classroom-celery-worker
+    restart: unless-stopped
+    command: celery -A app.tasks.worker worker --loglevel=info --concurrency=4
+    depends_on:
+      api:
+        condition: service_started
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:${DB_PASSWORD:-postgres}@db:5432/classroom_db
+      - REDIS_URL=redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+    networks:
+      - classroom-network
+
+  # ---------------------------------------------------------------------------
+  # Celery Beat - Periodic Task Scheduler (Production)
+  # ---------------------------------------------------------------------------
+  # Lightweight scheduler — only needs minimal resources since it dispatches
+  # tasks to workers rather than executing them.
+  # ---------------------------------------------------------------------------
+  celery-beat:
+    build:
+      context: ./backend
+      target: production
+    container_name: classroom-celery-beat
+    restart: unless-stopped
+    command: celery -A app.tasks.worker beat --loglevel=info
+    depends_on:
+      - celery-worker
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:${DB_PASSWORD:-postgres}@db:5432/classroom_db
+      - REDIS_URL=redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+    networks:
+      - classroom-network
+
+  # ---------------------------------------------------------------------------
+  # Frontend - Nginx Static File Server (Production)
+  # ---------------------------------------------------------------------------
+  # In production the frontend uses the nginx stage from the Dockerfile,
+  # serving pre-built static assets. No source code is mounted.
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    container_name: classroom-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - classroom-network
+
+  # ---------------------------------------------------------------------------
+  # Nginx - Reverse Proxy & SSL Termination
+  # ---------------------------------------------------------------------------
+  # Acts as the single entry point for all external traffic:
+  #   - Routes /api/* requests to the API service (load-balanced)
+  #   - Serves the frontend SPA for all other routes
+  #   - Handles SSL termination (mount certs via volumes)
+  #   - Applies security headers and rate limiting
+  #
+  # The configuration file is mounted read-only from the deploy directory.
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: classroom-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Mount the production nginx config as read-only
+      - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - classroom-network
+
+  # ---------------------------------------------------------------------------
+  # Flower - Celery Task Monitoring Dashboard
+  # ---------------------------------------------------------------------------
+  # Provides a real-time web UI for monitoring Celery workers, tasks, and
+  # queues. Accessible at http://<host>:5555 in production.
+  #
+  # Uses Redis database 1 (separate from the cache on database 0) to avoid
+  # interference with application caching.
+  # ---------------------------------------------------------------------------
+  flower:
+    image: mher/flower:2.0
+    container_name: classroom-flower
+    restart: unless-stopped
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+    depends_on:
+      - redis
+      - celery-worker
+    networks:
+      - classroom-network
+
+# =============================================================================
+# Networks
+# =============================================================================
+# Single bridge network for all inter-service communication.
+# In production, consider using overlay networks for multi-host deployments.
+# =============================================================================
+networks:
+  classroom-network:
+    driver: bridge
+
+# =============================================================================
+# Volumes
+# =============================================================================
+# Named volumes for persistent data. In production, back these up regularly
+# and consider using external volume drivers for cloud-managed storage.
+# =============================================================================
+volumes:
+  pgdata:
+  redisdata:

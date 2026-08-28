@@ -1,0 +1,68 @@
+# =============================================================================
+# Cognitive Classroom Digital Twin - Celery Worker Deployment
+# =============================================================================
+# Purpose: Deploys Celery worker processes that handle asynchronous AI tasks
+#          including Whisper transcription, LLM analysis, computer vision
+#          processing, and engagement metric computation.
+#
+# Components:
+#   - Deployment: 2 replicas of Celery workers (no Service required)
+#
+# Configuration:
+#   - Uses the same container image as the API server
+#   - Overrides the default entrypoint with the Celery worker command
+#   - Concurrency set to 4 workers per pod for parallel task execution
+#   - Higher resource limits to accommodate GPU/CPU-intensive AI workloads
+#   - Environment variables injected from ConfigMap and Secrets
+#
+# Scaling:
+#   - Increase replicas or concurrency based on task queue depth
+#   - Consider dedicated GPU node pools for ML-heavy workloads
+#
+# Usage:   kubectl apply -f celery-deployment.yaml -n classroom-twin
+# =============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  namespace: classroom-twin
+  labels:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/component: celery-worker
+    app.kubernetes.io/part-of: cognitive-classroom
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cognitive-classroom
+      app.kubernetes.io/component: celery-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cognitive-classroom
+        app.kubernetes.io/component: celery-worker
+        app.kubernetes.io/part-of: cognitive-classroom
+    spec:
+      containers:
+        - name: celery-worker
+          image: classroom-twin/api:latest
+          command:
+            - "celery"
+            - "-A"
+            - "app.tasks.worker"
+            - "worker"
+            - "--loglevel=info"
+            - "--concurrency=4"
+          envFrom:
+            - configMapRef:
+                name: classroom-twin-config
+            - secretRef:
+                name: classroom-twin-secrets
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"

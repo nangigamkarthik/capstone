@@ -1,0 +1,31 @@
+# =============================================================================
+# Cognitive Classroom Digital Twin - ConfigMap
+# =============================================================================
+# Purpose: Stores non-sensitive application configuration shared across all
+#          platform services (API, Celery workers, etc.).
+#
+# Notes:   - All values are stored as strings per ConfigMap specification.
+#          - Sensitive values (API keys, passwords) belong in secrets.yaml.
+#          - Changes to this ConfigMap require a pod restart to take effect
+#            unless the application watches for config changes.
+#
+# Usage:   kubectl apply -f configmap.yaml -n classroom-twin
+# =============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: classroom-twin-config
+  namespace: classroom-twin
+  labels:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: cognitive-classroom
+data:
+  APP_NAME: "Cognitive Classroom Digital Twin"
+  DEBUG: "false"
+  WHISPER_MODEL: "large-v3-turbo"
+  LLM_MODEL: "gpt-4o"
+  MAX_CAMERAS: "8"
+  CORS_ORIGINS: '["https://classroom-twin.example.com"]'
+  UPLOAD_DIR: "/app/uploads"

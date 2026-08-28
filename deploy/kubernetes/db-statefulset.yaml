@@ -1,0 +1,100 @@
+# =============================================================================
+# Cognitive Classroom Digital Twin - Database StatefulSet & Headless Service
+# =============================================================================
+# Purpose: Deploys TimescaleDB (PostgreSQL extension) as a StatefulSet for
+#          persistent, ordered storage of time-series sensor data, engagement
+#          metrics, and classroom analytics.
+#
+# Components:
+#   - StatefulSet:  Single-replica TimescaleDB with persistent volume claim
+#   - Service:      Headless service (clusterIP: None) for stable DNS naming
+#                   Pods are reachable at: db-0.db.classroom-twin.svc.cluster.local
+#
+# Storage:
+#   - Uses volumeClaimTemplates with 10Gi ReadWriteOnce for data persistence
+#   - Data survives pod restarts and rescheduling
+#
+# Security:
+#   - Database password is sourced from the classroom-twin-secrets Secret
+#
+# Usage:   kubectl apply -f db-statefulset.yaml -n classroom-twin
+# =============================================================================
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: classroom-twin
+  labels:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: cognitive-classroom
+spec:
+  serviceName: db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cognitive-classroom
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cognitive-classroom
+        app.kubernetes.io/component: database
+        app.kubernetes.io/part-of: cognitive-classroom
+    spec:
+      containers:
+        - name: timescaledb
+          image: timescale/timescaledb:2.17.2-pg16
+          ports:
+            - containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_DB
+              value: "classroom_db"
+            - name: POSTGRES_USER
+              value: "postgres"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: classroom-twin-secrets
+                  key: db-password
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+  volumeClaimTemplates:
+    - metadata:
+        name: db-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: classroom-twin
+  labels:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: cognitive-classroom
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/component: database
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP

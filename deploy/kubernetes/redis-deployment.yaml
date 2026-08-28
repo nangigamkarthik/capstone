@@ -1,0 +1,107 @@
+# =============================================================================
+# Cognitive Classroom Digital Twin - Redis Deployment, PVC & Service
+# =============================================================================
+# Purpose: Deploys Redis as the message broker for Celery task queues, caching
+#          layer for real-time classroom state, and pub/sub backbone for
+#          WebSocket event distribution.
+#
+# Components:
+#   - PersistentVolumeClaim: 1Gi storage for Redis AOF persistence
+#   - Deployment:            Single-replica Redis 7.4 Alpine with AOF enabled
+#   - Service:               ClusterIP service exposing port 6379
+#
+# Configuration:
+#   - AOF (Append-Only File) enabled for data durability
+#   - Max memory capped at 256MB with allkeys-lru eviction policy
+#   - Alpine image used for minimal container footprint
+#
+# Usage:   kubectl apply -f redis-deployment.yaml -n classroom-twin
+# =============================================================================
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  namespace: classroom-twin
+  labels:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/component: redis
+    app.kubernetes.io/part-of: cognitive-classroom
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: classroom-twin
+  labels:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/component: redis
+    app.kubernetes.io/part-of: cognitive-classroom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cognitive-classroom
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cognitive-classroom
+        app.kubernetes.io/component: redis
+        app.kubernetes.io/part-of: cognitive-classroom
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          command:
+            - redis-server
+            - "--appendonly"
+            - "yes"
+            - "--maxmemory"
+            - "256mb"
+            - "--maxmemory-policy"
+            - "allkeys-lru"
+          ports:
+            - containerPort: 6379
+              protocol: TCP
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: classroom-twin
+  labels:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/component: redis
+    app.kubernetes.io/part-of: cognitive-classroom
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/component: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP

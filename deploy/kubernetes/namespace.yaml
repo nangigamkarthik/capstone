@@ -1,0 +1,18 @@
+# =============================================================================
+# Cognitive Classroom Digital Twin - Namespace
+# =============================================================================
+# Purpose: Creates the dedicated Kubernetes namespace for all platform resources.
+#          All components of the Cognitive Classroom Digital Twin are deployed
+#          within this namespace for isolation and resource management.
+#
+# Usage:   kubectl apply -f namespace.yaml
+# =============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: classroom-twin
+  labels:
+    app.kubernetes.io/name: cognitive-classroom
+    app.kubernetes.io/part-of: cognitive-classroom
+    environment: production
