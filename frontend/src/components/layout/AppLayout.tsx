@@ -6,6 +6,7 @@ import CopilotDrawer from '../ui/CopilotDrawer';
 import CopilotButton from '../ui/CopilotButton';
 import CommandPalette from '../ui/CommandPalette';
 import OnboardingTour from '../ui/OnboardingTour';
+import VoiceAssistantButton from '../ui/VoiceAssistantButton';
 
 export default function AppLayout() {
   return (
@@ -58,6 +59,7 @@ export default function AppLayout() {
       <ToastContainer />
       <CopilotDrawer />
       <CopilotButton />
+      <VoiceAssistantButton />
       <CommandPalette />
       <OnboardingTour />
     </div>
