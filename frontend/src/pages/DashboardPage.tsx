@@ -1,12 +1,13 @@
-import { useState, useRef, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, Video, Activity, AlertTriangle, TrendingUp, Eye,
-  GripVertical, EyeOff, RotateCcw, Settings2, Check, X,
+  GripVertical, EyeOff, RotateCcw, Settings2, Check, X, Clock
 } from 'lucide-react';
 import StatCard from '../components/ui/StatCard';
 import { EngagementLineChart, EmotionDoughnut, AttendanceBarChart } from '../components/charts/Charts';
 import { useDashboardStore, type DashboardWidget } from '../stores/dashboardStore';
+import { useAuthStore } from '../stores/authStore';
 
 /* ── Mock data ── */
 const mockEngagement = { labels: ['10:00','10:05','10:10','10:15','10:20','10:25','10:30','10:35','10:40','10:45','10:50','10:55'], data: [82,85,78,72,68,65,70,75,80,77,74,79] };
@@ -32,9 +33,16 @@ const atRiskStudents = [
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { widgets, editMode, toggleEditMode, toggleWidget, reorderWidgets, resetLayout } = useDashboardStore();
+  const { user } = useAuthStore();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const dragCounter = useRef(0);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const visibleWidgets = editMode ? widgets : widgets.filter(w => w.visible);
 
@@ -43,7 +51,6 @@ export default function DashboardPage() {
     setDragIdx(idx);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(idx));
-    // Ghost image opacity
     if (e.currentTarget instanceof HTMLElement) {
       e.currentTarget.style.opacity = '0.4';
     }
@@ -89,14 +96,18 @@ export default function DashboardPage() {
 
   /* ── Render a single widget by id ── */
   const renderWidgetContent = (w: DashboardWidget): ReactNode => {
-    // Stat widgets
     const sd = statData[w.id];
     if (sd) {
       return (
-        <StatCard id={w.id} title={sd.title} icon={sd.icon}>
-          <div style={{ fontSize:28, fontWeight:800, color:'var(--text-primary)' }}>{sd.value}</div>
-          <div style={{ fontSize:12, color: sd.delta.startsWith('-') ? 'var(--danger)' : 'var(--success)', fontWeight:600 }}>{sd.delta}</div>
-        </StatCard>
+        <div className="stat-card-wrapper" style={{ height: '100%' }}>
+          <StatCard id={w.id} title={sd.title} icon={<span style={{ color: sd.color }}>{sd.icon}</span>}>
+            <div style={{ fontSize:28, fontWeight:800, color:'var(--text-primary)' }}>{sd.value}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize:12, color: sd.delta === 'Live' || sd.delta.startsWith('-') && !sd.delta.includes('%') ? 'var(--danger)' : 'var(--success)', fontWeight:600 }}>
+              {sd.delta === 'Live' && <span className="pulse-dot"></span>}
+              {sd.delta}
+            </div>
+          </StatCard>
+        </div>
       );
     }
     if (w.id === 'chart-engagement') {
@@ -122,7 +133,7 @@ export default function DashboardPage() {
     }
     if (w.id === 'panel-risk') {
       return (
-        <StatCard id={w.id} title="At-Risk Students" subtitle="Predictions" icon={<AlertTriangle size={18}/>}>
+        <StatCard id={w.id} title="At-Risk Students" subtitle="Predictions" icon={<AlertTriangle size={18} color="var(--danger)" />}>
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
             {atRiskStudents.map((s) => (
               <div
@@ -130,24 +141,35 @@ export default function DashboardPage() {
                 id={`student-risk-${s.id}`}
                 onClick={() => navigate(`/student/${s.id}`)}
                 style={{
-                  display:'flex', alignItems:'center', gap:12, padding:'10px 14px',
-                  borderRadius:10, background:'var(--bg-tertiary)', cursor:'pointer',
-                  transition:'all 0.2s ease', border: '1px solid transparent',
+                  display:'flex', alignItems:'center', gap:14, padding:'12px 16px',
+                  borderRadius:12, background:'var(--bg-tertiary)', cursor:'pointer',
+                  transition:'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', border: '1px solid rgba(255,255,255,0.02)',
+                  position: 'relative', overflow: 'hidden'
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary-500)'; e.currentTarget.style.transform = 'translateX(4px)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.transform = 'translateX(0)'; }}
+                className="at-risk-card"
               >
+                {/* Severity gradient bar */}
+                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: s.risk > 75 ? 'linear-gradient(to bottom, #ef4444, #991b1b)' : s.risk > 50 ? 'linear-gradient(to bottom, #f59e0b, #b45309)' : 'linear-gradient(to bottom, #22c55e, #166534)' }} />
+                
                 <div style={{
-                  width:36, height:36, borderRadius:'50%',
-                  background:`linear-gradient(135deg, hsl(${360-s.risk*3.6},70%,50%), hsl(${360-s.risk*3.6},70%,35%))`,
+                  width:40, height:40, borderRadius:'50%',
+                  background:`linear-gradient(135deg, hsl(${360-s.risk*3.6},80%,50%), hsl(${360-s.risk*3.6},80%,30%))`,
                   display:'flex', alignItems:'center', justifyContent:'center',
-                  color:'#fff', fontWeight:700, fontSize:12
-                }}>{Math.round(s.risk)}</div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:'var(--primary-400)' }}>{s.name}</div>
-                  <div style={{ fontSize:11, color:'var(--text-secondary)' }}>{s.reasons.join(' • ')}</div>
+                  color:'#fff', fontWeight:700, fontSize:14,
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                }}>
+                  {s.name.split(' ').map(n => n[0]).join('').substring(0,2)}
                 </div>
-                <div style={{ fontSize:12, color:'var(--text-secondary)' }}>→</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:14, fontWeight:600, color:'var(--text-primary)' }}>{s.name}</div>
+                  <div style={{ fontSize:12, color:'var(--text-secondary)', marginTop: 2 }}>{s.reasons.join(' • ')}</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: s.risk > 75 ? '#ef4444' : s.risk > 50 ? '#f59e0b' : '#22c55e' }}>
+                    {Math.round(s.risk)}%
+                  </div>
+                  <div style={{ fontSize:10, textTransform: 'uppercase', letterSpacing: '0.05em', color:'var(--text-secondary)' }}>Risk Score</div>
+                </div>
               </div>
             ))}
           </div>
@@ -184,7 +206,7 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="animate-fade-in" style={{ display:'flex', flexDirection:'column', gap:20 }}>
+    <div className="animate-fade-in" style={{ display:'flex', flexDirection:'column', gap:24 }}>
       <style>{`
         .dw-drag-over {
           outline: 2px dashed var(--primary-500) !important;
@@ -218,16 +240,90 @@ export default function DashboardPage() {
           pointer-events: none;
         }
         .dw-grip:hover { color: var(--primary-400) !important; }
-        .dw-widget-wrapper { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-        .dw-widget-wrapper:hover { transform: translateY(-2px); }
+        .dw-widget-wrapper { transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .dw-widget-wrapper:hover { transform: translateY(-4px); }
+        
+        .pulse-dot {
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background-color: #ef4444;
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+          animation: pulse-red 1.5s infinite;
+        }
+        
+        @keyframes pulse-red {
+          0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+          70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .stat-card-wrapper > div {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .stat-card-wrapper:hover > div {
+          background: linear-gradient(135deg, var(--bg-secondary), rgba(255,255,255,0.03));
+          border-color: rgba(255,255,255,0.1);
+        }
+
+        .at-risk-card:hover {
+          transform: translateX(6px);
+          background: linear-gradient(90deg, var(--bg-tertiary), rgba(255,255,255,0.03));
+        }
+
+        .section-divider {
+          height: 1px;
+          width: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+          margin: 10px 0;
+        }
       `}</style>
+
+      {/* ── Welcome Banner ── */}
+      <div style={{
+        padding: '28px 32px',
+        borderRadius: 20,
+        background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(20,184,166,0.08))',
+        border: '1px solid rgba(255,255,255,0.05)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+      }}>
+        {/* Pattern overlay */}
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.03, backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
+        <div style={{ zIndex: 1 }}>
+          <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0, background: 'linear-gradient(to right, #818cf8, #2dd4bf)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>
+            Welcome back, {user?.fullName?.split(' ')[0] || 'Instructor'}!
+          </h1>
+          <p style={{ margin: '8px 0 0', color: 'var(--text-secondary)', fontSize: 15, fontWeight: 500 }}>
+            Here's what's happening in your classrooms today.
+          </p>
+        </div>
+        <div style={{ zIndex: 1, display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(10px)', padding: '12px 20px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)' }}>
+          <Clock size={20} style={{ color: 'var(--primary-400)' }} />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
+              {currentTime.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="section-divider"></div>
 
       {/* ── Edit Toolbar ── */}
       <div style={editToolbarStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Settings2 size={18} style={{ color: editMode ? 'var(--primary-400)' : 'var(--text-secondary)' }} />
           <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-            {editMode ? 'Customizing Layout' : 'Dashboard'}
+            {editMode ? 'Customizing Layout' : 'Dashboard Overview'}
           </span>
           {editMode && (
             <span style={{
@@ -262,15 +358,14 @@ export default function DashboardPage() {
       {/* ── Widget Grid ── */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-        gap: 16,
+        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+        gap: 20,
       }}>
         {visibleWidgets.map((w, idx) => {
           const isStatRow = w.group === 'stat';
           const isDragTarget = overIdx === idx && dragIdx !== idx;
           const isHidden = !w.visible;
 
-          // Stats render as regular grid items. Charts/panels span multiple columns.
           const gridStyles: React.CSSProperties = isStatRow
             ? {}
             : { gridColumn: w.colSpan === 2 ? 'span 2' : 'span 1' };
@@ -288,11 +383,10 @@ export default function DashboardPage() {
               onDragOver={editMode ? handleDragOver : undefined}
               onDrop={editMode ? handleDrop(idx) : undefined}
             >
-              {/* Edit-mode control strip */}
               {editMode && (
                 <div style={{
-                  position: 'absolute', top: 8, right: 8, zIndex: 10,
-                  display: 'flex', gap: 4,
+                  position: 'absolute', top: 12, right: 12, zIndex: 10,
+                  display: 'flex', gap: 6,
                 }}>
                   <button
                     title={w.visible ? 'Hide widget' : 'Show widget'}
@@ -300,9 +394,10 @@ export default function DashboardPage() {
                     style={{
                       width: 28, height: 28, borderRadius: 8,
                       border: '1px solid var(--border-color)',
-                      background: w.visible ? 'var(--bg-tertiary)' : 'rgba(239,68,68,0.12)',
+                      background: w.visible ? 'rgba(15,23,42,0.8)' : 'rgba(239,68,68,0.2)',
                       color: w.visible ? 'var(--text-secondary)' : 'var(--danger)',
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      backdropFilter: 'blur(4px)',
                       transition: 'all 0.2s',
                     }}
                   >
@@ -314,8 +409,9 @@ export default function DashboardPage() {
                     style={{
                       width: 28, height: 28, borderRadius: 8,
                       border: '1px solid var(--border-color)',
-                      background: 'var(--bg-tertiary)',
+                      background: 'rgba(15,23,42,0.8)',
                       color: 'var(--text-secondary)',
+                      backdropFilter: 'blur(4px)',
                       cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
@@ -333,31 +429,32 @@ export default function DashboardPage() {
       {/* ── Hidden widget inventory (edit mode) ── */}
       {editMode && widgets.filter(w => !w.visible).length > 0 && (
         <div style={{
-          padding: '16px 20px', borderRadius: 14,
-          border: '1px dashed var(--border-color)',
-          background: 'var(--bg-tertiary)',
+          padding: '20px 24px', borderRadius: 16,
+          border: '1px dashed rgba(99,102,241,0.3)',
+          background: 'rgba(99,102,241,0.03)',
+          marginTop: 16
         }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Hidden Widgets — Click <X size={11} style={{ display: 'inline', verticalAlign: 'middle' }} /> to restore
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Hidden Widgets — Click <X size={12} style={{ display: 'inline', verticalAlign: 'middle', margin: '0 2px' }} /> to restore
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             {widgets.filter(w => !w.visible).map(w => (
               <button
                 key={w.id}
                 onClick={() => toggleWidget(w.id)}
                 style={{
-                  padding: '6px 14px', borderRadius: 8,
+                  padding: '8px 16px', borderRadius: 10,
                   border: '1px solid var(--border-color)',
                   background: 'var(--bg-secondary)',
                   color: 'var(--text-secondary)',
-                  fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 6,
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 8,
                   transition: 'all 0.2s',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary-500)'; e.currentTarget.style.color = 'var(--primary-400)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary-500)'; e.currentTarget.style.color = 'var(--primary-400)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.transform = 'translateY(0)'; }}
               >
-                <EyeOff size={12} /> {w.label}
+                <EyeOff size={14} /> {w.label}
               </button>
             ))}
           </div>
