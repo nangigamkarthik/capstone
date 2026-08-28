@@ -2,49 +2,52 @@ import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, Video, Activity, AlertTriangle, TrendingUp, Eye,
-  GripVertical, EyeOff, RotateCcw, Settings2, Check, X, Clock
+  GripVertical, EyeOff, RotateCcw, Settings2, Check, X, Clock, Wifi
 } from 'lucide-react';
 import StatCard from '../components/ui/StatCard';
 import { EngagementLineChart, EmotionDoughnut, AttendanceBarChart } from '../components/charts/Charts';
 import { useDashboardStore, type DashboardWidget } from '../stores/dashboardStore';
 import { useAuthStore } from '../stores/authStore';
+import { useLiveDataStore } from '../stores/liveDataStore';
 
-/* ── Mock data ── */
-const mockEngagement = { labels: ['10:00','10:05','10:10','10:15','10:20','10:25','10:30','10:35','10:40','10:45','10:50','10:55'], data: [82,85,78,72,68,65,70,75,80,77,74,79] };
-const mockEmotion = { happy:0.18, neutral:0.52, confused:0.12, interested:0.10, bored:0.05, frustrated:0.02, surprised:0.01 };
+/* ── Mock static attendance ── */
 const mockAttendance = { labels:['Mon','Tue','Wed','Thu','Fri'], data:[94,97,92,88,95] };
-
-const statData: Record<string, { title: string; value: string; delta: string; icon: ReactNode; color: string }> = {
-  'stat-students':   { title:'Total Students',  value:'156',   delta:'+12',        icon:<Users size={18}/>,         color:'var(--primary-500)' },
-  'stat-active':     { title:'Active Classes',   value:'4',     delta:'Live',       icon:<Video size={18}/>,         color:'var(--secondary-500)' },
-  'stat-engagement': { title:'Avg Engagement',   value:'73.2%', delta:'+2.4%',      icon:<Activity size={18}/>,      color:'var(--accent-500)' },
-  'stat-attention':  { title:'Avg Attention',    value:'68.5%', delta:'-1.2%',      icon:<Eye size={18}/>,           color:'#3b82f6' },
-  'stat-attendance': { title:'Attendance Rate',  value:'94.1%', delta:'+0.8%',      icon:<TrendingUp size={18}/>,    color:'var(--success)' },
-  'stat-alerts':     { title:'Active Alerts',    value:'7',     delta:'3 critical', icon:<AlertTriangle size={18}/>, color:'var(--danger)' },
-};
-
-const atRiskStudents = [
-  { id: 2, name:'Bob Jones',       risk:82.5, reasons:['Frequent phone usage','Distraction spikes'] },
-  { id: 3, name:'Carol Williams',  risk:68.2, reasons:['Attendance drop','Sleeping detected'] },
-  { id: 1, name:'Alice Smith',     risk:25.0, reasons:['Minor lookaways','Overall strong'] },
-];
 
 /* ── Component ── */
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { widgets, editMode, toggleEditMode, toggleWidget, reorderWidgets, resetLayout } = useDashboardStore();
   const { user } = useAuthStore();
+  const {
+    connectionStatus, engagement, attention, attendanceRate, totalStudents,
+    emotions, engagementTimeline, studentRisks, initWebSocket
+  } = useLiveDataStore();
+
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const dragCounter = useRef(0);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
+    const cleanup = initWebSocket();
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+    return () => {
+      cleanup();
+      clearInterval(timer);
+    };
+  }, [initWebSocket]);
 
   const visibleWidgets = editMode ? widgets : widgets.filter(w => w.visible);
+
+  /* ── Dynamic stat data derived from live store ── */
+  const statData: Record<string, { title: string; value: string; delta: string; icon: ReactNode; color: string }> = {
+    'stat-students':   { title:'Total Students',  value: String(totalStudents), delta:'+12',  icon:<Users size={18}/>,         color:'var(--primary-500)' },
+    'stat-active':     { title:'Active Classes',   value:'4',                     delta:'Live', icon:<Video size={18}/>,         color:'var(--secondary-500)' },
+    'stat-engagement': { title:'Avg Engagement',   value: `${engagement.toFixed(1)}%`, delta:'+2.4%', icon:<Activity size={18}/>,   color:'var(--accent-500)' },
+    'stat-attention':  { title:'Avg Attention',    value: `${attention.toFixed(1)}%`,  delta:'-1.2%', icon:<Eye size={18}/>,        color:'#3b82f6' },
+    'stat-attendance': { title:'Attendance Rate',  value: `${attendanceRate}%`,   delta:'+0.8%', icon:<TrendingUp size={18}/>,    color:'var(--success)' },
+    'stat-alerts':     { title:'Active Alerts',    value:'7',                     delta:'3 critical', icon:<AlertTriangle size={18}/>, color:'var(--danger)' },
+  };
 
   /* ── Drag handlers ── */
   const handleDragStart = (idx: number) => (e: React.DragEvent) => {
@@ -102,7 +105,7 @@ export default function DashboardPage() {
         <div className="stat-card-wrapper" style={{ height: '100%' }}>
           <StatCard id={w.id} title={sd.title} icon={<span style={{ color: sd.color }}>{sd.icon}</span>}>
             <div style={{ fontSize:28, fontWeight:800, color:'var(--text-primary)' }}>{sd.value}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize:12, color: sd.delta === 'Live' || sd.delta.startsWith('-') && !sd.delta.includes('%') ? 'var(--danger)' : 'var(--success)', fontWeight:600 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize:12, color: sd.delta === 'Live' || (sd.delta.startsWith('-') && !sd.delta.includes('%')) ? 'var(--danger)' : 'var(--success)', fontWeight:600 }}>
               {sd.delta === 'Live' && <span className="pulse-dot"></span>}
               {sd.delta}
             </div>
@@ -112,15 +115,15 @@ export default function DashboardPage() {
     }
     if (w.id === 'chart-engagement') {
       return (
-        <StatCard id={w.id} title="Engagement Timeline" subtitle="Last 60 minutes">
-          <EngagementLineChart labels={mockEngagement.labels} data={mockEngagement.data} />
+        <StatCard id={w.id} title="Engagement Timeline" subtitle="Live stream (rolling 60 min)">
+          <EngagementLineChart labels={engagementTimeline.labels} data={engagementTimeline.data} />
         </StatCard>
       );
     }
     if (w.id === 'chart-emotions') {
       return (
-        <StatCard id={w.id} title="Emotion Distribution" subtitle="Current class">
-          <EmotionDoughnut distribution={mockEmotion} />
+        <StatCard id={w.id} title="Emotion Distribution" subtitle="Live facial snapshots">
+          <EmotionDoughnut distribution={emotions} />
         </StatCard>
       );
     }
@@ -133,9 +136,9 @@ export default function DashboardPage() {
     }
     if (w.id === 'panel-risk') {
       return (
-        <StatCard id={w.id} title="At-Risk Students" subtitle="Predictions" icon={<AlertTriangle size={18} color="var(--danger)" />}>
+        <StatCard id={w.id} title="At-Risk Students" subtitle="Real-time predictions" icon={<AlertTriangle size={18} color="var(--danger)" />}>
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-            {atRiskStudents.map((s) => (
+            {studentRisks.map((s) => (
               <div
                 key={s.id}
                 id={`student-risk-${s.id}`}
@@ -303,15 +306,32 @@ export default function DashboardPage() {
             Here's what's happening in your classrooms today.
           </p>
         </div>
-        <div style={{ zIndex: 1, display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(10px)', padding: '12px 20px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)' }}>
-          <Clock size={20} style={{ color: 'var(--primary-400)' }} />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        <div style={{ zIndex: 1, display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* WebSocket Live Status */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 14px', borderRadius: 12,
+            background: connectionStatus === 'connected' ? 'rgba(34,197,94,0.12)' : connectionStatus === 'simulated' ? 'rgba(99,102,241,0.12)' : 'rgba(239,68,68,0.12)',
+            border: `1px solid ${connectionStatus === 'connected' ? 'rgba(34,197,94,0.3)' : connectionStatus === 'simulated' ? 'rgba(99,102,241,0.3)' : 'rgba(239,68,68,0.3)'}`,
+            color: connectionStatus === 'connected' ? 'var(--success)' : connectionStatus === 'simulated' ? 'var(--primary-400)' : 'var(--danger)',
+            fontSize: 12, fontWeight: 600,
+          }}>
+            <Wifi size={14} className={connectionStatus === 'connecting' ? 'animate-spin' : ''} />
+            <span style={{ textTransform: 'capitalize' }}>
+              {connectionStatus === 'simulated' ? 'Live Telemetry Stream' : connectionStatus}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
-              {currentTime.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
-            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(10px)', padding: '12px 20px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)' }}>
+            <Clock size={20} style={{ color: 'var(--primary-400)' }} />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
+                {currentTime.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
+              </span>
+            </div>
           </div>
         </div>
       </div>
