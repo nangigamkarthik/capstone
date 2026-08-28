@@ -12,6 +12,7 @@ import ResearchPage from './pages/ResearchPage';
 import SettingsPage from './pages/SettingsPage';
 import AdminPage from './pages/AdminPage';
 import StudentProfilePage from './pages/StudentProfilePage';
+import CampusPage from './pages/CampusPage';
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/campus" element={<CampusPage />} />
           <Route path="/live" element={<LiveClassroomPage />} />
           <Route path="/twin" element={<DigitalTwinPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />

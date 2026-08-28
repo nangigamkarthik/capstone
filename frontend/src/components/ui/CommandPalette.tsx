@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, LayoutDashboard, Video, Box, BarChart3, Clock, FileText, FlaskConical, Settings, Shield, User, Sparkles, Sun, Download, HelpCircle } from 'lucide-react';
+import { Search, LayoutDashboard, Building2, Video, Box, BarChart3, Clock, FileText, FlaskConical, Settings, Shield, User, Sparkles, Sun, Download, HelpCircle } from 'lucide-react';
 import { useThemeStore } from '../../stores/themeStore';
 import { useCopilotStore } from '../../stores/copilotStore';
 import { generatePDFReport } from '../../utils/pdfGenerator';
@@ -26,6 +26,7 @@ export default function CommandPalette() {
   const commands: CommandItem[] = [
     // Navigation
     { id: 'nav-dash', category: 'Navigation', title: 'Dashboard', subtitle: 'Overview stats & classroom telemetry', icon: <LayoutDashboard size={18} />, action: () => navigate('/') },
+    { id: 'nav-campus', category: 'Navigation', title: 'Campus Map & 2D Floorplan', subtitle: 'Multi-classroom floorplan & room telemetry', icon: <Building2 size={18} />, action: () => navigate('/campus') },
     { id: 'nav-live', category: 'Navigation', title: 'Live Classroom', subtitle: 'Real-time multi-modal monitoring', icon: <Video size={18} />, action: () => navigate('/live') },
     { id: 'nav-twin', category: 'Navigation', title: 'Digital Twin', subtitle: '3D Spatial classroom & heatmaps', icon: <Box size={18} />, action: () => navigate('/twin') },
     { id: 'nav-analytics', category: 'Navigation', title: 'Analytics & Leaderboard', subtitle: 'Comparative benchmarks & rankings', icon: <BarChart3 size={18} />, action: () => navigate('/analytics') },

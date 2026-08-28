@@ -8,6 +8,7 @@ import NotificationPanel from '../ui/NotificationPanel';
 
 const pageTitles: Record<string, { label: string; emoji: string }> = {
   '/': { label: 'Dashboard', emoji: '📊' },
+  '/campus': { label: 'Campus Map', emoji: '🏢' },
   '/live': { label: 'Live Classroom', emoji: '🎥' },
   '/twin': { label: 'Digital Twin', emoji: '🧊' },
   '/analytics': { label: 'Analytics', emoji: '📈' },
