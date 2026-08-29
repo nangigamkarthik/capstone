@@ -1,6 +1,17 @@
 version: "3.9"
 
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - classroom-network
+
   api:
     build:
       context: ./backend
