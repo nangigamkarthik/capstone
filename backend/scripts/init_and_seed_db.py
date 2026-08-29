@@ -33,6 +33,13 @@ async def seed_data():
     async with async_session_maker() as db:
         # Create Users
         admin_user = User(
+            email="admin@cogniclass.ai",
+            hashed_password=get_password_hash("admin123"),
+            full_name="System Administrator",
+            role=UserRole.ADMIN,
+            is_active=True
+        )
+        admin_user_edu = User(
             email="admin@classroom.edu",
             hashed_password=get_password_hash("admin123"),
             full_name="System Administrator",
@@ -40,6 +47,13 @@ async def seed_data():
             is_active=True
         )
         teacher_user = User(
+            email="teacher@cogniclass.ai",
+            hashed_password=get_password_hash("teacher123"),
+            full_name="Dr. Sarah Jenkins",
+            role=UserRole.TEACHER,
+            is_active=True
+        )
+        teacher_user_edu = User(
             email="sarah.jenkins@classroom.edu",
             hashed_password=get_password_hash("teacher123"),
             full_name="Dr. Sarah Jenkins",
@@ -47,7 +61,9 @@ async def seed_data():
             is_active=True
         )
         db.add(admin_user)
+        db.add(admin_user_edu)
         db.add(teacher_user)
+        db.add(teacher_user_edu)
         await db.flush()
 
         # Create Teacher Profile

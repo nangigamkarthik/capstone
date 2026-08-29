@@ -22,12 +22,20 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(User).filter(User.email == form_data.username))
+    uname = form_data.username.strip().lower()
+    result = await db.execute(
+        select(User).filter(
+            (func.lower(User.email) == uname) |
+            (func.lower(User.email) == f"{uname}@cogniclass.ai") |
+            (func.lower(User.email) == f"{uname}@classroom.edu") |
+            (func.lower(User.role) == uname)
+        )
+    )
     user = result.scalars().first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect username/email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     elif not user.is_active:

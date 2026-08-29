@@ -15,12 +15,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.infrastructure.database.session import Base
-# Explicitly import all models to register in metadata registry
-from app.infrastructure.database.models.user import User, Student, Teacher
-from app.infrastructure.database.models.course import Room, Course, Lecture
-from app.infrastructure.database.models.classroom_data import StudentDetection, PoseSnapshot, HeadPoseSnapshot, GazeSnapshot, EmotionSnapshot, ActivityEvent
-from app.infrastructure.database.models.analytics import EngagementScore, EnvironmentMetrics
-from app.infrastructure.database.models.system import AuditLog, PrivacyConsent, Report, Heatmap, Embedding
+# Import all models to register in metadata registry
+from app.infrastructure.database.models import *
 
 import app.infrastructure.websocket.streamer as streamer_module
 from app.infrastructure.websocket.manager import manager
@@ -39,14 +35,19 @@ class MockWebSocket:
         self.received_messages.append(message)
 
 
+from sqlalchemy.pool import StaticPool
+
 async def async_main():
     print("====================================================")
     print("   COGNITIVE CLASSROOM DIGITAL TWIN - PHASE 5 VERIFY")
     print("====================================================")
     
-    # ── 1. Set up In-Memory SQLite Database ──
-    print("1. Initializing in-memory SQLite test database...")
-    test_engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    # ── 1. Set up Test SQLite Database ──
+    print("1. Initializing test SQLite database...")
+    db_file = "./test_realtime.db"
+    if os.path.exists(db_file):
+        os.remove(db_file)
+    test_engine = create_async_engine(f"sqlite+aiosqlite:///{db_file}", echo=False)
     test_session_maker = async_sessionmaker(
         test_engine,
         expire_on_commit=False,
@@ -140,6 +141,13 @@ async def async_main():
     print("====================================================")
     print("Real-Time Streamer & DB integration: PASSED [OK]")
     print("====================================================")
+
+    await test_engine.dispose()
+    if os.path.exists(db_file):
+        try:
+            os.remove(db_file)
+        except Exception:
+            pass
 
 def main():
     asyncio.run(async_main())
