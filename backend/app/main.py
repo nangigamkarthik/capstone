@@ -51,7 +51,7 @@ app.include_router(admin.router, prefix=f"{settings.API_V1_PREFIX}/admin", tags=
 app.include_router(ws.router, prefix="/ws", tags=["WebSockets"])
 app.include_router(alerts.router, prefix=f"{settings.API_V1_PREFIX}/alerts", tags=["Alerts"])
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     return {
         "app_name": settings.APP_NAME,

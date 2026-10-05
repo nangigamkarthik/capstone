@@ -9,8 +9,8 @@ from app.core.config import settings
 
 router = APIRouter()
 
-@router.get("", response_model=HealthResponse, tags=["System Health"])
-@router.get("/", response_model=HealthResponse, tags=["System Health"])
+@router.api_route("", methods=["GET", "HEAD"], response_model=HealthResponse, tags=["System Health"])
+@router.api_route("/", methods=["GET", "HEAD"], response_model=HealthResponse, tags=["System Health"])
 async def health(db: AsyncSession = Depends(get_db)):
     db_status = "healthy"
     try:
