@@ -13,6 +13,7 @@ import SettingsPage from './pages/SettingsPage';
 import AdminPage from './pages/AdminPage';
 import StudentProfilePage from './pages/StudentProfilePage';
 import CampusPage from './pages/CampusPage';
+import StudentPortalPage from './pages/StudentPortalPage';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/student-portal" element={<StudentPortalPage />} />
           <Route path="/campus" element={<CampusPage />} />
           <Route path="/live" element={<LiveClassroomPage />} />
           <Route path="/twin" element={<DigitalTwinPage />} />

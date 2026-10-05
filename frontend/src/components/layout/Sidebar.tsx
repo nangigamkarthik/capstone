@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, Video, Box, BarChart3, Clock, FileText, FlaskConical, Settings, Shield, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Building2, Video, Box, BarChart3, Clock, FileText, FlaskConical, Settings, Shield, ChevronLeft, ChevronRight, GraduationCap } from 'lucide-react';
 import { useClassroomStore } from '../../stores/classroomStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useState } from 'react';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/student-portal', label: 'Student Portal', icon: GraduationCap },
   { path: '/campus', label: 'Campus Map', icon: Building2 },
   { path: '/live', label: 'Live Classroom', icon: Video },
   { path: '/twin', label: 'Digital Twin', icon: Box },
