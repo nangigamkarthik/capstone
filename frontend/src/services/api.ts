@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api/v1' });
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://capstone-ylv9.onrender.com/api/v1';
+const api = axios.create({ baseURL: API_BASE });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');

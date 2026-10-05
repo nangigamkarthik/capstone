@@ -38,9 +38,8 @@ class WebSocketService {
   }
 
   public connect(lectureId = 201, channel: WSChannel = 'classroom') {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
-    const url = `${protocol}//${host}/api/v1/ws/${channel}/${lectureId}`;
+    const wsBase = import.meta.env.VITE_WS_BASE_URL || (window.location.hostname === 'localhost' ? 'ws://localhost:8000/api/v1/ws' : 'wss://capstone-ylv9.onrender.com/api/v1/ws');
+    const url = `${wsBase}/${channel}/${lectureId}`;
 
     this.setStatus('connecting');
 
